@@ -29,3 +29,9 @@ Investigate whether combining diverse models improves stock direction prediction
 - Stacking ensemble
 - Financial backtesting
 - Risk metrics
+
+Key Findings:
+
+1-day forecasting too noisy
+5-day horizon improved signal
+LSTM outperformed classical and tree-based models
