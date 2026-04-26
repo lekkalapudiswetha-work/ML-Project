@@ -1,4 +1,0 @@
-model,accuracy
-ARIMAX,0.478
-XGBoost,0.530
-LSTM,0.596
