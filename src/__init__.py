@@ -1,0 +1,2 @@
+"""Stock forecasting project package."""
+

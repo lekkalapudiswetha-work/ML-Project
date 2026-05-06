@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 numpy
 pandas
 matplotlib
@@ -7,3 +8,15 @@ statsmodels
 tensorflow
 yfinance
 ta
+=======
+numpy>=1.24
+pandas>=2.0
+matplotlib>=3.7
+scikit-learn>=1.3
+statsmodels>=0.14
+xgboost>=2.0
+tensorflow>=2.15
+yfinance>=0.2.40
+jupyter>=1.0
+
+>>>>>>> 28e1cb3 (Initial stock forecasting project scaffold)

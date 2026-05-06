@@ -1,4 +1,2 @@
-model,accuracy
-ARIMAX,0.478
-XGBoost,0.530
-LSTM,0.596
+split,model,accuracy,precision,recall,f1,sharpe_ratio,cumulative_return
+
