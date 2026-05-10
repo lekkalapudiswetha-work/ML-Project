@@ -10,7 +10,7 @@ import pandas as pd
 import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.layers import Input, LSTM, Dense, Dropout
 
 from src.data_loader import RANDOM_SEED
 from src.evaluation import compute_classification_metrics
@@ -36,8 +36,8 @@ def build_lstm_sequences(
     indices: list[pd.Timestamp] = []
     values = df[feature_columns].values
     labels = df["target"].values
-    for end_idx in range(window_size, len(df)):
-        sequences.append(values[end_idx - window_size : end_idx])
+    for end_idx in range(window_size - 1, len(df)):
+        sequences.append(values[end_idx - window_size + 1 : end_idx + 1])
         targets.append(labels[end_idx])
         indices.append(df.index[end_idx])
     return np.array(sequences), np.array(targets), pd.Index(indices)
@@ -65,7 +65,8 @@ def create_lstm_model(window_size: int, feature_count: int) -> Sequential:
     """Construct the required LSTM architecture."""
     model = Sequential(
         [
-            LSTM(32, input_shape=(window_size, feature_count)),
+            Input(shape=(window_size, feature_count)),
+            LSTM(32),
             Dropout(0.2),
             Dense(1, activation="sigmoid"),
         ]
@@ -90,14 +91,8 @@ def train_lstm_model(
         feature_columns,
     )
 
-    validation_with_context = pd.concat(
-        [scaled_train.tail(window_size), scaled_validation],
-        axis=0,
-    )
-    test_with_context = pd.concat(
-        [scaled_validation.tail(window_size), scaled_test],
-        axis=0,
-    )
+    validation_with_context = pd.concat([scaled_train.tail(window_size - 1), scaled_validation], axis=0)
+    test_with_context = pd.concat([scaled_validation.tail(window_size - 1), scaled_test], axis=0)
 
     x_train, y_train, train_index = build_lstm_sequences(scaled_train, feature_columns, window_size)
     x_validation, y_validation, validation_index = build_lstm_sequences(
@@ -138,6 +133,17 @@ def train_lstm_model(
     }
 
 
+def scale_frame_with_existing_scaler(
+    frame: pd.DataFrame,
+    feature_columns: list[str],
+    scaler: MinMaxScaler,
+) -> pd.DataFrame:
+    """Apply an existing scaler to a DataFrame copy."""
+    scaled = frame.copy()
+    scaled[feature_columns] = scaler.transform(frame[feature_columns])
+    return scaled
+
+
 def save_training_curve_plot(history, output_path: Path) -> None:
     """Save loss and accuracy training curves."""
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
@@ -152,4 +158,3 @@ def save_training_curve_plot(history, output_path: Path) -> None:
     fig.tight_layout()
     fig.savefig(output_path, dpi=200)
     plt.close(fig)
-

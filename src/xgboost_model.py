@@ -12,14 +12,9 @@ from src.data_loader import RANDOM_SEED
 from src.evaluation import compute_classification_metrics
 
 
-def train_xgboost_model(
-    train_df: pd.DataFrame,
-    validation_df: pd.DataFrame,
-    test_df: pd.DataFrame,
-    feature_columns: list[str],
-) -> dict[str, object]:
-    """Fit XGBoost and return probabilities and metrics for each split."""
-    model = XGBClassifier(
+def create_xgboost_classifier() -> XGBClassifier:
+    """Construct the shared XGBoost classifier configuration."""
+    return XGBClassifier(
         n_estimators=250,
         max_depth=4,
         learning_rate=0.05,
@@ -29,6 +24,16 @@ def train_xgboost_model(
         eval_metric="logloss",
         random_state=RANDOM_SEED,
     )
+
+
+def train_xgboost_model(
+    train_df: pd.DataFrame,
+    validation_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    feature_columns: list[str],
+) -> dict[str, object]:
+    """Fit XGBoost and return probabilities and metrics for each split."""
+    model = create_xgboost_classifier()
     model.fit(train_df[feature_columns], train_df["target"])
 
     outputs: dict[str, object] = {"model": model}
@@ -55,4 +60,3 @@ def save_feature_importance_plot(
     fig.tight_layout()
     fig.savefig(output_path, dpi=200)
     plt.close(fig)
-

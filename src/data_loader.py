@@ -18,7 +18,7 @@ class ProjectConfig:
 
     ticker: str = "SPY"
     start_date: str = "2013-01-01"
-    end_date: str = "2024-01-01"
+    end_date: str | None = "2024-01-01"
     train_end: str = "2021-12-31"
     validation_end: str = "2022-12-31"
     test_end: str = "2024-01-01"
@@ -81,7 +81,11 @@ def load_price_data(config: ProjectConfig) -> pd.DataFrame:
     return cleaned
 
 
-def add_split_labels(df: pd.DataFrame, config: ProjectConfig) -> pd.DataFrame:
+def add_split_labels(
+    df: pd.DataFrame,
+    config: ProjectConfig,
+    restrict_to_test_end: bool = True,
+) -> pd.DataFrame:
     """Attach chronological split labels used throughout the project."""
     split_df = df.copy()
     split_df["split"] = "test"
@@ -91,12 +95,13 @@ def add_split_labels(df: pd.DataFrame, config: ProjectConfig) -> pd.DataFrame:
         & (split_df.index <= pd.Timestamp(config.validation_end)),
         "split",
     ] = "validation"
-    split_df.loc[split_df.index >= pd.Timestamp(config.test_end), "split"] = "post_test"
-    return split_df[split_df["split"] != "post_test"].copy()
+    if restrict_to_test_end:
+        split_df.loc[split_df.index >= pd.Timestamp(config.test_end), "split"] = "post_test"
+        return split_df[split_df["split"] != "post_test"].copy()
+    return split_df
 
 
 def ensure_project_dirs(config: ProjectConfig) -> None:
     """Create results directories when needed."""
     config.results_dir.mkdir(parents=True, exist_ok=True)
     config.figures_dir.mkdir(parents=True, exist_ok=True)
-

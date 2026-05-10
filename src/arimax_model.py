@@ -32,6 +32,23 @@ def _fit_single_arimax(
     return result
 
 
+def fit_best_arimax_by_aic(
+    train_target: pd.Series,
+    train_exog: pd.DataFrame,
+) -> tuple[object, tuple[int, int, int], pd.DataFrame]:
+    """Fit candidate orders and select the lowest-AIC model."""
+    candidates: list[dict[str, object]] = []
+    for order in ARIMAX_ORDERS:
+        result = _fit_single_arimax(train_target, train_exog, order)
+        candidates.append({"order": order, "result": result, "aic": result.aic})
+
+    best = sorted(candidates, key=lambda item: item["aic"])[0]
+    summary = pd.DataFrame(
+        [{"order": str(candidate["order"]), "aic": candidate["aic"]} for candidate in candidates]
+    )
+    return best["result"], best["order"], summary
+
+
 def train_arimax_model(
     train_df: pd.DataFrame,
     validation_df: pd.DataFrame,
@@ -98,4 +115,3 @@ def train_arimax_model(
         "test_probabilities": test_prob,
         "test_metrics": compute_classification_metrics(test_df["target"], test_pred),
     }
-

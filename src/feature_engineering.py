@@ -28,6 +28,16 @@ def compute_macd(series: pd.Series) -> pd.Series:
 
 def engineer_features(raw_df: pd.DataFrame, config: ProjectConfig) -> pd.DataFrame:
     """Create modeling features and both classification/regression targets."""
+    return engineer_features_with_options(raw_df, config)
+
+
+def engineer_features_with_options(
+    raw_df: pd.DataFrame,
+    config: ProjectConfig,
+    drop_target_na: bool = True,
+    restrict_to_test_end: bool = True,
+) -> pd.DataFrame:
+    """Create modeling features with configurable retention of unlabeled rows."""
     df = raw_df.copy()
 
     df["returns"] = df["Close"].pct_change()
@@ -52,12 +62,21 @@ def engineer_features(raw_df: pd.DataFrame, config: ProjectConfig) -> pd.DataFra
     df["volume_change"] = df["Volume"].pct_change()
 
     horizon = config.forecast_horizon
-    df["future_return"] = (df["Close"].shift(-horizon) / df["Close"]) - 1
-    df["target"] = (df["Close"].shift(-horizon) > df["Close"]).astype(int)
+    future_close = df["Close"].shift(-horizon)
+    df["future_return"] = (future_close / df["Close"]) - 1
+    df["target"] = np.where(
+        future_close.isna(),
+        np.nan,
+        (future_close > df["Close"]).astype(int),
+    )
 
-    df = add_split_labels(df, config)
+    df = add_split_labels(df, config, restrict_to_test_end=restrict_to_test_end)
     df = df.replace([np.inf, -np.inf], np.nan)
-    df = df.dropna().copy()
+    required_features = sorted({feature for features in get_feature_sets().values() for feature in features})
+    df = df.dropna(subset=required_features).copy()
+    if drop_target_na:
+        df = df.dropna(subset=["future_return", "target"]).copy()
+        df["target"] = df["target"].astype(int)
     return df
 
 
@@ -118,4 +137,3 @@ def split_frame(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFr
     validation = df[df["split"] == "validation"].copy()
     test = df[df["split"] == "test"].copy()
     return train, validation, test
-
