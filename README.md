@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Stock Market Prediction Using Ensemble Methods
 
 Graduate ML project exploring ensemble methods for financial time series forecasting.
@@ -368,8 +367,4 @@ The strongest course-report framing is:
 - Add richer macroeconomic and cross-asset exogenous features.
 - Replace single validation-period stacking with out-of-fold temporal meta-features.
 - Add model registry, experiment tracking, and automated backtest reports.
-<<<<<<< HEAD
 
->>>>>>> 28e1cb3 (Initial stock forecasting project scaffold)
-=======
->>>>>>> 26f60e1 (   README.md)
