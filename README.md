@@ -39,7 +39,11 @@ LSTM outperformed classical and tree-based models
 =======
 # Adaptive Ensemble Stock Forecasting with Context-Aware Stacking
 
-Graduate-level machine learning project for forecasting whether the **SPY ETF** will be higher after **5 trading days**. The repository is designed as a reproducible research pipeline and portfolio-ready engineering project, combining econometric, tree-based, and deep learning models with a regime-aware meta-learner.
+Graduate-level machine learning project for forecasting whether a security will be higher after **5 trading days**. The repository is designed as a reproducible research pipeline and portfolio-ready engineering project, combining econometric, tree-based, and deep learning models with a regime-aware meta-learner. It now supports:
+
+- real-data experiments on **SPY** and configurable tickers
+- synthetic experiments for controlled model-behavior analysis
+- live next-5-trading-days directional prediction for any chosen ticker
 
 ## Project Overview
 
@@ -55,7 +59,7 @@ It also models the 5-day forward return:
 future_return = (Close.shift(-5) / Close) - 1
 ```
 
-The initial dataset is limited to **SPY** from **2013-01-01** to **2024-01-01** using `yfinance` adjusted close data. The architecture is configurable so the same pipeline can later support `AAPL`, `MSFT`, `NVDA`, `TSLA`, `QQQ`, or multi-ticker extensions.
+The initial real dataset is **SPY** from **2013-01-01** to **2024-01-01** using `yfinance` adjusted close data. The architecture is configurable so the same pipeline can also support `AAPL`, `MSFT`, `NVDA`, `TSLA`, `QQQ`, or future multi-ticker extensions.
 
 ## Methodology
 
@@ -113,7 +117,13 @@ Adaptive stacking is superior to static averaging because it can learn that mode
 - In smoother, trend-dominated periods, ARIMAX may be more stable.
 - In feature-rich nonlinear regimes, XGBoost may dominate.
 
-Instead of manually coding those rules, the stacker learns them directly from validation-period behavior.
+Instead of manually coding those rules, the stacker learns them directly from validation-period behavior. The current implementation also applies a **regularized, chronology-aware meta-training procedure** to reduce overfitting:
+
+- shallower trees
+- stronger L1/L2 penalties
+- lower subsampling rates
+- chronological holdout within the validation period
+- early stopping for the context-aware XGBoost stacker
 
 ## Repository Structure
 
@@ -134,11 +144,14 @@ ML-Project/
 │   ├── lstm_model.py
 │   ├── stacking.py
 │   ├── context_stacking.py
-│   └── evaluation.py
+│   ├── evaluation.py
+│   └── synthetic_data.py
 ├── results/
 │   ├── figures/
 │   └── metrics.csv
 ├── run_pipeline.py
+├── run_synthetic_experiments.py
+├── predict.py
 ├── requirements.txt
 ├── README.md
 └── .gitignore
@@ -200,6 +213,35 @@ Generated artifacts include:
 - Model comparison charts
 - `results/metrics.csv`
 
+## Synthetic Experiments
+
+To satisfy graduate coursework requirements and test model inductive biases under controlled conditions, the project includes a synthetic experiment suite in [src/synthetic_data.py](/Users/swethalekkalapudi/Documents/ML-Project/src/synthetic_data.py) and [run_synthetic_experiments.py](/Users/swethalekkalapudi/Documents/ML-Project/run_synthetic_experiments.py).
+
+Implemented synthetic regimes:
+
+- **Linear autoregressive regime**
+  Intended to favor ARIMAX under smooth linear dynamics.
+- **Nonlinear threshold regime**
+  Intended to favor XGBoost when piecewise nonlinear effects dominate.
+- **Sequential latent-state regime**
+  Intended to favor LSTM when temporal memory and persistence matter.
+- **Regime-switching regime**
+  Intended to test whether context-aware stacking can adapt when model reliability changes with market state.
+
+The synthetic suite also evaluates:
+
+- noise sensitivity
+- sample-size sensitivity
+- cross-model behavior under controlled structure
+
+Outputs include:
+
+- `results/synthetic_metrics.csv`
+- synthetic price path plots
+- noise sensitivity plots
+- sample-size sensitivity plots
+- medium-noise synthetic summary tables for each regime
+
 ## Model Comparison Table
 
 The pipeline writes the final comparison table to `results/metrics.csv`. The schema is:
@@ -220,13 +262,52 @@ The pipeline writes the final comparison table to `results/metrics.csv`. The sch
 ## Setup
 
 ```bash
-python -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python run_pipeline.py
 ```
 
-The full pipeline downloads SPY data, engineers features, trains all base learners, fits both stacking models, saves metrics, and writes figures into `results/figures/`.
+The full real-data pipeline downloads SPY data, engineers features, trains all base learners, fits both stacking models, saves metrics, and writes figures into `results/figures/`.
+
+Note for macOS users: `xgboost` may require `libomp`:
+
+```bash
+brew install libomp
+```
+
+TensorFlow should be installed with **Python 3.11** rather than Python 3.14.
+
+## Usage
+
+### Real-data training
+
+```bash
+python run_pipeline.py
+```
+
+### Synthetic experiment suite
+
+```bash
+python run_synthetic_experiments.py
+```
+
+### Live 5-day direction prediction for any ticker
+
+```bash
+python predict.py --ticker AAPL
+python predict.py --ticker MSFT
+python predict.py --ticker NVDA
+python predict.py --ticker SPY
+```
+
+Optional:
+
+```bash
+python predict.py --ticker AAPL --start-date 2018-01-01
+```
+
+This command retrains the base models and stackers on that ticker’s history and outputs the current probability that the asset will be higher in 5 trading days.
 
 ## Notebooks
 
@@ -243,7 +324,18 @@ Each notebook mirrors the production modules in `src/` rather than re-implementi
 
 ## Results
 
-The project is structured so final metrics and plots are produced deterministically once dependencies are installed and `run_pipeline.py` is executed. This keeps the repository lightweight while preserving reproducibility.
+The project is structured so final metrics and plots are produced deterministically once dependencies are installed and the experiment runners are executed. This keeps the repository lightweight while preserving reproducibility.
+
+### Real-Data Observations
+
+In the current SPY experiment:
+
+- the **LSTM** is the strongest held-out test model
+- **XGBoost** is a competitive nonlinear baseline
+- **ARIMAX** provides a useful interpretable econometric baseline
+- the initial context-aware stacker overfit severely, motivating the regularized meta-model update now included in the repository
+
+This makes the project scientifically stronger: the repository does not just report successes, it also documents failure modes and mitigation strategies for ensemble overfitting.
 
 ## Why Different Models Matter
 
@@ -251,6 +343,22 @@ The project is structured so final metrics and plots are produced deterministica
 - **XGBoost** captures nonlinear cross-feature effects without heavy feature scaling demands.
 - **LSTM** captures sequential dependencies and temporal context across rolling windows.
 - **Context-aware stacking** combines them by learning which model to trust under different market conditions instead of assigning fixed weights.
+
+## ESE 588 Alignment
+
+This repository is now directly aligned with the ESE 588 course project expectations:
+
+- clear mathematical problem formulation
+- explicit method section with model choices and design rationale
+- **synthetic experiments** to study model behavior under controlled conditions
+- **real-data experiments** on SPY
+- discussion of strengths, limitations, and failure cases
+
+The strongest course-report framing is:
+
+- Does adaptive ensemble learning improve 5-day stock direction forecasting?
+- Under what regimes do ARIMAX, XGBoost, and LSTM succeed or fail?
+- Can context-aware stacking generalize across changing market conditions?
 
 ## Future Work
 
@@ -260,5 +368,8 @@ The project is structured so final metrics and plots are produced deterministica
 - Add richer macroeconomic and cross-asset exogenous features.
 - Replace single validation-period stacking with out-of-fold temporal meta-features.
 - Add model registry, experiment tracking, and automated backtest reports.
+<<<<<<< HEAD
 
 >>>>>>> 28e1cb3 (Initial stock forecasting project scaffold)
+=======
+>>>>>>> 26f60e1 (   README.md)
