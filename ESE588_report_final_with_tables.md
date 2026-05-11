@@ -214,6 +214,9 @@ P_t = P_(t-1) * (1 + r_t)
 
 Synthetic volume was generated as a noisy function of return magnitude so that the same feature-engineering pipeline used for SPY could be reused without major changes. In this way, the synthetic experiments were not isolated toy classifiers, but controlled versions of the same downstream forecasting pipeline used on real data.
 
+[Insert Figure 1 here: synthetic_price_paths.png]
+Figure 1. Representative synthetic price paths for the linear, nonlinear, sequential, and regime-switching data-generating processes.
+
 Four synthetic regimes were studied:
 1. linear autoregressive
 2. nonlinear threshold
@@ -323,11 +326,8 @@ The real-data experiment uses SPY from 2013-01-01 to 2024-01-01, downloaded from
 
 Although the report focuses on tables for space efficiency, the implementation also generates diagnostic visual outputs such as feature-importance plots, training curves, confusion matrices, and cumulative-return comparisons. These were used during development to inspect model behavior and confirm that the reported tabular results were not masking obvious pathologies.
 
-[Figure 1 here]
-Representative synthetic price paths for the linear, nonlinear, sequential, and regime-switching data-generating processes.
-
-[Figure 2 here]
-Held-out SPY cumulative-return comparison for the major models under the long/flat strategy.
+[Insert Figure 2 here: spy_cumulative_return_comparison.png]
+Figure 2. Held-out SPY cumulative-return comparison for the major models under the long/flat strategy.
 
 The experimental design uses each model as a baseline against the others. ARIMAX is the classical econometric baseline, XGBoost is the nonlinear tabular baseline, LSTM is the sequential deep-learning baseline, logistic stacking is the static ensemble baseline, and context-aware stacking is the adaptive ensemble under study. Base models are trained on the train set. Validation predictions are used to train the stackers. The test set is reserved strictly for final evaluation.
 
@@ -357,8 +357,8 @@ Always Predict Up | 0.6367 | 0.6367 | 1.0000 | 0.7781 | not applicable | not rep
 Logistic Stacking | 0.3878 | 0.8750 | 0.0449 | 0.0854 | 2.1861 | 0.2177
 Context-Aware Stacking (XGBoost Meta-Model) | 0.4122 | 0.7143 | 0.1282 | 0.2174 | 2.8530 | 0.4657
 
-[Figure 3 here]
-Example confusion matrix for the XGBoost model on the SPY test set. This figure is useful because it provides a cleaner visual summary of the strongest nontrivial learned baseline, showing a more balanced tradeoff between true positives and false positives than the adaptive ensemble.
+[Insert Figure 3 here: test_xgboost_confusion_matrix.png]
+Figure 3. Example confusion matrix for the XGBoost model on the SPY test set. This figure provides a cleaner visual summary of the strongest nontrivial learned baseline, showing a more balanced tradeoff between true positives and false positives than the adaptive ensemble.
 
 Interpretation:
 The real-data baseline comparison reveals an important nuance. On both validation and test data, the LSTM metrics match an always-predict-up baseline exactly, which means that its apparent strength comes from predicting the positive class for every observation rather than learning a discriminative boundary. This makes XGBoost the strongest nontrivial learned model on SPY, while ARIMAX remains a useful interpretable baseline. The context-aware stacker improved after regularization, threshold tuning, and reduction of the context feature set, but it still does not outperform XGBoost on held-out SPY data.
