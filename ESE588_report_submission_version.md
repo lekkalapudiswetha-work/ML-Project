@@ -125,7 +125,7 @@ arimax_prob
 
 This model serves as a simple static ensemble baseline. It tests whether a linear combination of the base models is more stable than any individual model.
 
-The second is context-aware XGBoost stacking. In the final version of the project, the meta-model uses:
+The second is context-aware stacking with an XGBoost meta-model. In the final version of the project, the meta-model uses:
 xgb_prob
 lstm_prob
 arimax_prob
@@ -145,6 +145,8 @@ early stopping
 validation-based threshold selection
 
 These changes were introduced because the initial context-aware stacker achieved unrealistically high validation metrics while generalizing poorly to the test period. The goal of the final design was therefore not to maximize validation accuracy, but to produce a more credible and stable meta-model.
+
+Stacking was chosen over other ensemble approaches because the base learners in this project are intentionally heterogeneous. Bagging is most effective when combining many similar high-variance learners trained on resampled versions of the same problem, while boosting is designed to build a stronger learner by sequentially correcting errors within one model family. Neither approach is naturally suited to combining an econometric model, a tree-based classifier, and a recurrent neural network that each encode different assumptions about the data. Stacking is more appropriate because it allows a meta-learner to infer when each base model is reliable and how their signals should be combined. The context-aware version extends this idea further by allowing that combination rule to depend on market regime features rather than remaining fixed across all conditions.
 
 3.5 Evaluation
 
@@ -197,7 +199,7 @@ Main role: Static ensemble baseline
 Strength: Simple and often stable
 Limitation: Cannot adapt weights by regime
 
-Model: Context-Aware XGBoost Stacking
+Model: Context-Aware Stacking (XGBoost Meta-Model)
 Input: Base model probabilities plus vol10, rsi, and trend_signal
 Output: Final ensemble probability
 Main role: Adaptive regime-aware ensemble
@@ -223,7 +225,7 @@ The synthetic experiments were designed to test three key properties:
 2. temporal memory and latent persistence
 3. robustness to increasing noise and limited sample size
 
-Noise levels were varied across low, medium, and high settings, and a sample-size sensitivity study was performed for the regime-switching case. This allows the report to evaluate not only which model wins under a given regime, but also how stable that ranking is as the signal-to-noise ratio and available training data change.
+Noise levels were varied across low, medium, and high settings, and a sample-size sensitivity study was performed for the regime-switching case. Synthetic experiments used 3000 observations per regime by default, split chronologically into 2000 training, 500 validation, and 500 test observations. The smaller sample-size study used 700/200/200, and the medium study used 1200/300/300. This allows the report to evaluate not only which model wins under a given regime, but also how stable that ranking is as the signal-to-noise ratio and available training data change.
 
 4.1 Linear Regime
 
@@ -321,6 +323,12 @@ The real-data experiment uses SPY from 2013-01-01 to 2024-01-01, downloaded from
 
 Although the report focuses on tables for space efficiency, the implementation also generates diagnostic visual outputs such as feature-importance plots, training curves, confusion matrices, and cumulative-return comparisons. These were used during development to inspect model behavior and confirm that the reported tabular results were not masking obvious pathologies.
 
+[Figure 1 here]
+Representative synthetic price paths for the linear, nonlinear, sequential, and regime-switching data-generating processes.
+
+[Figure 2 here]
+Held-out SPY cumulative-return comparison for the major models under the long/flat strategy.
+
 The experimental design uses each model as a baseline against the others. ARIMAX is the classical econometric baseline, XGBoost is the nonlinear tabular baseline, LSTM is the sequential deep-learning baseline, logistic stacking is the static ensemble baseline, and context-aware stacking is the adaptive ensemble under study. Base models are trained on the train set. Validation predictions are used to train the stackers. The test set is reserved strictly for final evaluation.
 
 Validation results are summarized first because they show how strong the models appear before final held-out evaluation. These metrics are presented in Table 3.
@@ -332,8 +340,9 @@ Columns: Model | Accuracy | Precision | Recall | F1
 XGBoost | 0.4741 | 0.4672 | 0.9145 | 0.6185
 ARIMAX | 0.5020 | 0.4722 | 0.5812 | 0.5211
 LSTM | 0.4661 | 0.4661 | 1.0000 | 0.6359
+Always Predict Up | 0.4661 | 0.4661 | 1.0000 | 0.6359
 Logistic Stacking | 0.5339 | 0.5000 | 0.0940 | 0.1583
-Context-Aware XGBoost Stacking | 0.6375 | 0.6512 | 0.4786 | 0.5517
+Context-Aware Stacking (XGBoost Meta-Model) | 0.6375 | 0.6512 | 0.4786 | 0.5517
 
 The held-out test comparison is summarized in Table 4.
 
@@ -344,19 +353,23 @@ Columns: Model | Accuracy | Precision | Recall | F1 | Sharpe Ratio | Cumulative 
 XGBoost | 0.5551 | 0.6146 | 0.8077 | 0.6981 | 3.4872 | 1.5149
 ARIMAX | 0.4286 | 0.5889 | 0.3397 | 0.4309 | 2.2593 | 0.5494
 LSTM | 0.6367 | 0.6367 | 1.0000 | 0.7781 | 4.1685 | 2.1429
+Always Predict Up | 0.6367 | 0.6367 | 1.0000 | 0.7781 | not applicable | not reported
 Logistic Stacking | 0.3878 | 0.8750 | 0.0449 | 0.0854 | 2.1861 | 0.2177
-Context-Aware XGBoost Stacking | 0.4122 | 0.7143 | 0.1282 | 0.2174 | 2.8530 | 0.4657
+Context-Aware Stacking (XGBoost Meta-Model) | 0.4122 | 0.7143 | 0.1282 | 0.2174 | 2.8530 | 0.4657
+
+[Figure 3 here]
+Example confusion matrix for the context-aware stacker with an XGBoost meta-model on the SPY test set. This figure is useful because it visually shows the key failure mode of the adaptive ensemble: the model is overly conservative, produces very few positive predictions, and therefore misses many true upward moves despite maintaining relatively high precision on the few signals it does emit.
 
 Interpretation:
-LSTM is the strongest held-out model on SPY in both classification and financial terms. XGBoost is a competitive nonlinear baseline. ARIMAX remains useful as an interpretable baseline. The context-aware stacker improved after regularization, threshold tuning, and reduction of the context feature set, but it still does not outperform LSTM or XGBoost on held-out SPY data.
+The real-data baseline comparison reveals an important nuance. On both validation and test data, the LSTM metrics match an always-predict-up baseline exactly, which means that its apparent strength comes from predicting the positive class for every observation rather than learning a discriminative boundary. This makes XGBoost the strongest nontrivial learned model on SPY, while ARIMAX remains a useful interpretable baseline. The context-aware stacker improved after regularization, threshold tuning, and reduction of the context feature set, but it still does not outperform XGBoost on held-out SPY data.
 
-This result is important because it changes the project conclusion from a simplistic “ensemble wins” narrative to a more meaningful research conclusion. The synthetic experiments show that ensemble learning can help when the structure is controlled and heterogeneous. The real-data experiment shows that robust adaptive stacking is harder to train than expected because the meta-learning stage is itself noisy, regime-dependent, and data-limited.
+This result is important because it changes the project conclusion from a simplistic “ensemble wins” narrative to a more meaningful research conclusion. The synthetic experiments show that ensemble learning can help when the structure is controlled and heterogeneous. The real-data experiment shows that robust adaptive stacking is harder to train than expected because the meta-learning stage is itself noisy, regime-dependent, and data-limited. It also shows why naive baselines matter: strong headline accuracy can be misleading when class balance shifts over time.
 
 6. Discussion
 
 The strongest aspect of the project is the connection between modeling assumptions and empirical evaluation. The synthetic experiments isolate model inductive bias under known structure, while the SPY experiment tests whether those conclusions remain meaningful in a real financial time series.
 
-The results show that no single model class is universally best. LSTM performs best when predictive structure is sequential. XGBoost is effective for nonlinear interactions. ARIMAX provides an interpretable linear baseline. Stacking can improve performance in controlled heterogeneous settings.
+The results show that no single model class is universally best. LSTM performs best in the synthetic sequential regime, where temporal persistence is the true source of signal. XGBoost is effective for nonlinear interactions and is the strongest nontrivial learned model on real SPY data. ARIMAX provides an interpretable linear baseline. Stacking can improve performance in controlled heterogeneous settings.
 
 At the same time, the project shows that adaptive stacking is difficult to train robustly on real financial data. The context-aware stacker can fit validation regimes strongly but generalize inconsistently. The simplified final stacker is better than earlier overfit versions, but it remains weaker than the best base learner on SPY.
 
@@ -372,7 +385,7 @@ This project investigated five-day stock direction forecasting using ARIMAX, XGB
 
 The synthetic experiments showed that model inductive bias matters. LSTM performed best in sequential regimes, XGBoost was effective in nonlinear settings, ARIMAX remained a useful linear baseline, and stacking often improved performance under controlled heterogeneous structure. However, adaptive stacking was generally less stable than simpler stacking.
 
-The SPY experiments showed that LSTM was the strongest held-out model, with XGBoost as a competitive alternative and ARIMAX as an interpretable benchmark. The final context-aware stacker improved after regularization and simplification, but it still did not outperform the best base learner on real held-out data.
+The SPY experiments showed that the raw best test metrics were achieved by a trivial always-up pattern, which the LSTM matched exactly. Once that naive baseline is taken into account, XGBoost becomes the strongest nontrivial learned model, with ARIMAX as an interpretable benchmark. The final context-aware stacker improved after regularization and simplification, but it still did not outperform XGBoost on real held-out data.
 
 The final conclusion is therefore nuanced rather than purely optimistic. Ensemble learning can help when model skill varies across controlled regimes, but robust adaptive stacking is difficult to deploy reliably on noisy real financial data. In this project, that difficulty became one of the main findings rather than a failure of the study. As a result, the project demonstrates not only implementation of multiple forecasting models, but also a careful empirical investigation of when adaptive ensemble learning helps and when it fails to generalize.
 
