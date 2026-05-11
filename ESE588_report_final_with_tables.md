@@ -358,7 +358,7 @@ Logistic Stacking | 0.3878 | 0.8750 | 0.0449 | 0.0854 | 2.1861 | 0.2177
 Context-Aware Stacking (XGBoost Meta-Model) | 0.4122 | 0.7143 | 0.1282 | 0.2174 | 2.8530 | 0.4657
 
 [Figure 3 here]
-Example confusion matrix for the context-aware stacker with an XGBoost meta-model on the SPY test set. This figure is useful because it visually shows the key failure mode of the adaptive ensemble: the model is overly conservative, produces very few positive predictions, and therefore misses many true upward moves despite maintaining relatively high precision on the few signals it does emit.
+Example confusion matrix for the XGBoost model on the SPY test set. This figure is useful because it provides a cleaner visual summary of the strongest nontrivial learned baseline, showing a more balanced tradeoff between true positives and false positives than the adaptive ensemble.
 
 Interpretation:
 The real-data baseline comparison reveals an important nuance. On both validation and test data, the LSTM metrics match an always-predict-up baseline exactly, which means that its apparent strength comes from predicting the positive class for every observation rather than learning a discriminative boundary. This makes XGBoost the strongest nontrivial learned model on SPY, while ARIMAX remains a useful interpretable baseline. The context-aware stacker improved after regularization, threshold tuning, and reduction of the context feature set, but it still does not outperform XGBoost on held-out SPY data.
